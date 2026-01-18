@@ -31,16 +31,23 @@ typedef struct
     int priority;
 } Player;
 
-typedef struct 
-{
-  int roundNum;
-  Player player1;
-  Player player2;
+// Round record (each game)
 
-  time_t startTime;
-  time_t endTime;
-
+typedef struct {
+    int roundNum;
+    Player player1;
+    Player player2;
+    int part;          // 1 or 2
+    int finalScore1;
+    int finalScore2;
+    time_t startTime;
+    time_t endTime;
 } Round;
+
+typedef struct RoundNode {
+    Round info;
+    struct RoundNode *next;
+} RoundNode;
 
 // Queue
 
@@ -194,6 +201,42 @@ void displayEndTime(time_t t){
     printf("Round End at: %s\n",buffer);
 }
 
+// Round list helpers
+
+void addRound(RoundNode **head, Round r){
+    RoundNode *newNode = malloc(sizeof(RoundNode));
+    if (!newNode) return;
+    newNode->info = r;
+    newNode->next = NULL;
+
+    if (*head == NULL){
+        *head = newNode;
+    } else {
+        RoundNode *cur = *head;
+        while (cur->next != NULL){
+            cur = cur->next;
+        }
+        cur->next = newNode;
+    }
+}
+
+void displayAllRounds(RoundNode *head){
+    printf("===== All recorded rounds =====\n");
+    if (head == NULL){
+        printf("No rounds recorded.\n");
+        return;
+    }
+    RoundNode *cur = head;
+    while (cur != NULL){
+        Round r = cur->info;
+        printf("Game %d (Part %d): %s vs %s, final scores %d - %d\n",
+               r.roundNum, r.part,
+               r.player1.name, r.player2.name,
+               r.finalScore1, r.finalScore2);
+        cur = cur->next;
+    }
+}
+
 // Starting the game
 
 void gameStart(int *n){
@@ -294,7 +337,8 @@ int digitSum(int x){
     }
     return sum;
 }
-//use boolean to check if u really get players
+
+// use boolean to check if you really get players
 bool getAPlayer(Queue *F ,Queue *F1,Queue *F3,
                 int *nbF, int *nbF1, int *nbF3, Player *p){
     if (!isEmptyQueue(*F1)){
@@ -538,7 +582,9 @@ void updateDrawPart2(Player *p1,Player *p2){
     p2->score = 0;
 }
 
-void placePlayerPart2(Player p,Queue *F,Queue *F1,Queue *F3, int *nbF,int *nbF1, int *nbF3,Node **LG, Node **LP){
+void placePlayerPart2(Player p,Queue *F,Queue *F1,Queue *F3,
+                      int *nbF,int *nbF1, int *nbF3,
+                      Node **LG, Node **LP){
     if (p.totalLosses2 >=2){
         addToLp(LP,p);
         return;
@@ -705,6 +751,9 @@ int main(){
     Player p1,p2,winner,loser;
     time_t startTime,endTime;
 
+    // Rounds list
+    RoundNode *roundsHead = NULL;
+
     // The queues
     Queue F,F1,F3;
     initQueue(&F);
@@ -749,6 +798,18 @@ int main(){
 
         displayStartTime(startTime);
         displayEndTime(endTime);
+
+        // SAVE GAME (PART 1)
+        Round r;
+        r.roundNum    = roundNum;
+        r.player1     = p1;
+        r.player2     = p2;
+        r.part        = 1;
+        r.finalScore1 = p1.score;
+        r.finalScore2 = p2.score;
+        r.startTime   = startTime;
+        r.endTime     = endTime;
+        addRound(&roundsHead, r);
 
         if (p1.score > p2.score){
             winner = p1;
@@ -845,6 +906,18 @@ int main(){
             displayStartTime(startTime);
             displayEndTime(endTime);
 
+            // SAVE GAME (PART 2)
+            Round r2;
+            r2.roundNum    = roundNum;
+            r2.player1     = p1;
+            r2.player2     = p2;
+            r2.part        = 2;
+            r2.finalScore1 = p1.score;
+            r2.finalScore2 = p2.score;
+            r2.startTime   = startTime;
+            r2.endTime     = endTime;
+            addRound(&roundsHead, r2);
+
             if (abs(p1.score - p2.score) >=3 ){
                 if (p1.score > p2.score){
                     winner = p1;
@@ -914,6 +987,9 @@ int main(){
             }
         }
     }
+
+    printf("===== All rounds (for report) =====\n");
+    displayAllRounds(roundsHead);
 
     printf("===== Final statistics =====\n");
 
